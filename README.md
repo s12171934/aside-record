@@ -37,7 +37,7 @@ git clone https://github.com/s12171934/aside-record.git ~/.claude/skills/aside-r
 
 | 경로 | 내용 |
 | --- | --- |
-| `SKILL.md` | 스킬 본문 — 실행 절차, 깨뜨리면 안 되는 제약, 확인 방법, 타임라인 노트 규칙 |
+| [[20_Agents/skills/aside-record/SKILL\|SKILL.md]] | 스킬 본문 — 실행 절차, 깨뜨리면 안 되는 제약, 확인 방법, 타임라인 노트 규칙 |
 | `scripts/aside-follow.sh` | 녹화 러너 — 가상 화면 준비, 에이전트 탭 추적, 녹화, 원복 |
 | `scripts/aside-timeline.py` | 세션 로그를 녹화 시작 기준 오프셋으로 펴는 타임라인 초안 도구 |
 
