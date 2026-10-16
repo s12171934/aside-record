@@ -2,7 +2,7 @@
 title: aside-record
 created: 2026-10-16
 updated: 2026-10-16
-tags: [domain/자동화, area/ai에이전트]
+tags: [domain/인공지능, area/브라우저에이전트]
 source: ai
 ---
 
