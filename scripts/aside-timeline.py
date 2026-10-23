@@ -74,7 +74,7 @@ def parse_start(value, video):
         except ValueError:
             pass
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").timestamp()
-    # 파일명이 곧 녹화 시작이다 — aside-follow.sh 가 ffmpeg 을 띄우는 시점에 이름을 짓는다.
+    # 파일명이 곧 녹화 시작이다 — aside-follow.sh 가 첫 프레임의 시각으로 이름을 짓는다.
     m = re.search(r"(\d{8})-(\d{6})", os.path.basename(video or ""))
     if not m:
         sys.exit("녹화 시작 시각을 알 수 없습니다 — --start 로 넘기세요")
