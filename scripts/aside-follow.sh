@@ -116,8 +116,7 @@ def state(**kv):
 r = call(f"""
 await fs.mkdir('./artifacts/frames', {{recursive: true}});
 const pin = await openTab({json.dumps(url)});
-const pinT = (await listBrowserTabs()).filter(t => t.url === page.url()).pop();
-console.log('PIN:' + (pinT ? pinT.targetId : ''));
+console.log('PIN:' + (pin.targetId || ''));
 """)
 m = re.search(r"PIN:([0-9A-F]+)", r)
 if not m or not sess:
