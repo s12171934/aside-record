@@ -10,6 +10,7 @@
 """
 import argparse, json, os, re, sys, glob, time
 from datetime import datetime
+from urllib.parse import quote
 
 SESSION_GLOB = os.path.expanduser("~/.aside/u/*/sessions/*/messages.jsonl")
 
@@ -74,11 +75,12 @@ def parse_start(value, video):
         except ValueError:
             pass
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").timestamp()
-    # 파일명이 곧 녹화 시작이다 — aside-follow.sh 가 첫 프레임의 시각으로 이름을 짓는다.
-    m = re.search(r"(\d{8})-(\d{6})", os.path.basename(video or ""))
+    # 파일명이 곧 녹화 시작이다 — aside-follow.sh 가 「<케이스 이름> <첫 프레임 시각>.mp4」로 짓는다.
+    # 케이스 이름에도 숫자가 들어갈 수 있어 마지막 시각 묶음을 쓴다.
+    m = re.findall(r"(\d{8})-(\d{6})", os.path.basename(video or ""))
     if not m:
         sys.exit("녹화 시작 시각을 알 수 없습니다 — --start 로 넘기세요")
-    return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S").timestamp()
+    return datetime.strptime(m[-1][0] + m[-1][1], "%Y%m%d%H%M%S").timestamp()
 
 
 def offset(ts_ms, start):
@@ -141,6 +143,8 @@ def main():
 
     span = [m["timestamp"] for m in msgs if m.get("timestamp")]
     print("# 영상: %s" % (a.video or "(미지정)"))
+    if a.video:
+        print("# 영상 URL: file://%s" % quote(os.path.abspath(a.video)))
     print("# 녹화 시작: %s" % datetime.fromtimestamp(start).strftime("%Y-%m-%d %H:%M:%S"))
     print("# 세션: %s" % path)
     print("# 세션 구간: %s → %s"

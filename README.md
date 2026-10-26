@@ -1,7 +1,7 @@
 ---
 title: aside-record
 created: 2026-10-16
-updated: 2026-10-23
+updated: 2026-10-26
 tags: [domain/인공지능, area/브라우저에이전트, agent/claude-1b219bef-b3db-4ef6-8088-81f7f0d19120]
 source: ai
 ---
@@ -12,7 +12,7 @@ Aside 브라우저 에이전트(`aside exec`)가 웹에서 한 일을 영상으�
 
 - 화면을 찍지 않는다. 관찰자 `aside repl` 이 고정 탭을 열고 에이전트를 그 탭에 묶은 뒤, 그 탭에서 프레임을 직접 받는다.
 - 사용자의 화면·창·키보드 포커스를 건드리지 않고, 케이스마다 탭이 따로라 여러 녹화를 동시에 돌릴 수 있다.
-- 결과물은 `~/Desktop` 의 mp4 하나와, Obsidian Media Extended 타임스탬프 링크로 된 타임라인 노트다.
+- 결과물은 `~/Movies/aside-record/<케이스 이름> <시각>.mp4` 하나와, Obsidian Media Extended 타임스탬프 링크로 된 타임라인 노트다.
 
 ## 요구 사항
 

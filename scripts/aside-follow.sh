@@ -2,12 +2,18 @@
 # 0) 관찰자 repl 이 고정 탭을 열어 대상 URL 을 띄움 → 1) 에이전트를 그 탭에 묶어 작업 수행
 # → 2) 관찰자가 그동안 고정 탭의 프레임을 받아 둠 → 3) 프레임을 mp4 로 묶고 정리
 # 화면·창·포커스를 건드리지 않는다 — 탭을 전면에 올리지 않고 탭에서 직접 프레임을 받는다.
-# 결과물은 데스크탑의 mp4 하나. 작업 로그와 프레임은 임시로만 남는다.
-# 사용법: aside-follow.sh "<대상 URL>" "<작업 프롬프트>"
+# 결과물은 ~/Movies/aside-record 의 mp4 하나. 작업 로그와 프레임은 임시로만 남는다.
+# 사용법: aside-follow.sh [--name "<케이스 이름>"] "<대상 URL>" "<작업 프롬프트>"
 #         aside-follow.sh --check   (환경만 점검하고 끝낸다 — 녹화하지 않는다)
 set -u
-CHECK=""
-[ "${1:-}" = "--check" ] && { CHECK=1; shift; }
+CHECK=""; NAME=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --check) CHECK=1; shift ;;
+    --name)  NAME="${2:?--name 뒤에 케이스 이름이 필요합니다}"; shift 2 ;;
+    *) break ;;
+  esac
+done
 if [ -n "$CHECK" ]; then
   URL=""; PROMPT=""
 else
@@ -16,7 +22,7 @@ else
 fi
 # 산출물 위치는 인자로 받지 않는다 — 호출자가 넘긴 세션 임시 디렉터리로 들어가면
 # 세션이 정리될 때 영상이 같이 사라진다.
-OUTDIR="$HOME/Desktop"
+OUTDIR="$HOME/Movies/aside-record"
 SDIR="$(cd "$(dirname "$0")" && pwd -P)"
 # 타임라인 노트를 둘 Obsidian 볼트(선택). 주면 --check 가 Media Extended 플러그인 설치를 확인한다.
 VAULT="${ASIDE_RECORD_VAULT:-}"
@@ -216,15 +222,23 @@ FIRST=$(ls "$FRAMES" 2>/dev/null | sort -n | head -1)
 COUNT=$(ls "$FRAMES" | wc -l | tr -d ' ')
 
 # --- 3) 인코딩 ----------------------------------------------------------------
-# 파일 이름의 시각은 첫 프레임의 시각이다 — 타임라인 오프셋의 기준점이다.
+# 파일 이름은 「<케이스 이름> <첫 프레임 시각>.mp4」. 시각은 타임라인 오프셋의 기준점이라 빼지 않는다.
+# 이름을 안 주면 대상 URL 의 호스트로 짓는다. 경로를 깨는 문자(/ :)와 연속 공백만 정리한다.
 REC_EPOCH=$(( ${FIRST%.jpg} / 1000 ))
-MP4="$OUTDIR/aside-$(date -r "$REC_EPOCH" +%Y%m%d-%H%M%S).mp4"
+[ -z "$NAME" ] && NAME=$(printf '%s' "$URL" | sed -E 's#^[a-zA-Z]+://##; s#[/?\#].*$##')
+NAME=$(printf '%s' "$NAME" | tr '/:\n\t' '----' | tr -s ' ' | sed -E 's/^[ .-]+//; s/[ .]+$//' | cut -c1-80)
+[ -z "$NAME" ] && NAME="aside"
+STAMP=$(date -r "$REC_EPOCH" +%Y%m%d-%H%M%S)
+mkdir -p "$OUTDIR"
+MP4="$OUTDIR/$NAME $STAMP.mp4"
 # 여러 케이스를 동시에 돌리면 같은 초에 시작할 수 있다. 시각 부분은 그대로 두고 뒤에만 붙인다.
-i=2; while [ -e "$MP4" ]; do MP4="$OUTDIR/aside-$(date -r "$REC_EPOCH" +%Y%m%d-%H%M%S)-$i.mp4"; i=$((i+1)); done
+i=2; while [ -e "$MP4" ]; do MP4="$OUTDIR/$NAME $STAMP-$i.mp4"; i=$((i+1)); done
 echo "3) 인코딩 (프레임 $COUNT 장)"
 encode "$FRAMES" "$MP4" || { echo "인코딩 실패 — 프레임은 $FRAMES 에 남겨 둔다"; SESS=""; exit 1; }
 
 echo "영상: $MP4"
+# 파일명에 공백·한글이 들어가므로 노트의 file:/// 링크는 이 인코딩된 값을 쓴다.
+echo "영상 URL: $(python3 -c 'import sys,urllib.parse; print("file://" + urllib.parse.quote(sys.argv[1]))' "$MP4")"
 echo "녹화 시작: $(date -r "$REC_EPOCH" '+%Y-%m-%d %H:%M:%S') (epoch $REC_EPOCH)"
 # 타임라인 노트를 쓰려면 이 작업이 남긴 세션 로그가 필요하다. `aside repl` 세션(관찰자 포함)은
 # messages.jsonl 이 없어 저절로 걸러지고, 프롬프트가 같은 세션만 고르므로 다른 작업과 섞이지 않는다.
