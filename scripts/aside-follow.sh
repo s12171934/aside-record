@@ -27,7 +27,16 @@ SDIR="$(cd "$(dirname "$0")" && pwd -P)"
 # 타임라인 노트를 둘 Obsidian 볼트(선택). 주면 --check 가 Media Extended 플러그인 설치를 확인한다.
 VAULT="${ASIDE_RECORD_VAULT:-}"
 FPS="${ASIDE_RECORD_FPS:-5}"
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+TMP=$(mktemp -d); trap 'at_exit; rm -rf "$TMP"' EXIT
+
+# --- 테스트 진행 기록 ---------------------------------------------------------
+# 녹화 실측도 테스트로 친다 — agent dashboard 의 atest 진행 파일에 녹화 하나를 실행 하나로, 단계를 케이스로 남긴다.
+# atest 는 $ATEST·PATH, 없으면 이 스킬이 든 볼트의 agent-dashboard 에서 찾는다. 없거나 실패해도 녹화는 계속한다.
+ATEST="${ATEST:-$(command -v atest 2>/dev/null)}"
+[ -x "$ATEST" ] || ATEST="$SDIR/../../../../40_Tools/agent-dashboard/bin/atest"
+AT_KEY=""; AT_DONE=""
+at() { [ -n "$AT_KEY" ] && [ -x "$ATEST" ] && "$ATEST" "$@" --key "$AT_KEY" >/dev/null 2>&1; return 0; }
+at_exit() { [ -n "$AT_KEY" ] && [ -z "$AT_DONE" ] && at end failed "녹화가 중간에 멈췄다"; return 0; }
 
 # --- 사전 점검 --------------------------------------------------------------
 # 화면 기록·접근성 권한은 더 이상 필요 없다 — 화면을 찍지도, 메뉴를 누르지도 않는다.
@@ -77,6 +86,12 @@ if [ -n "$CHECK" ]; then
   if preflight; then echo "점검 통과 — 녹화할 수 있다"; exit 0; else echo "점검 실패 $PF_FAIL 건"; exit 1; fi
 fi
 preflight || { echo "사전 점검 실패 $PF_FAIL 건 — 위 항목을 먼저 해결한다"; exit 1; }
+if [ -x "$ATEST" ]; then
+  AT_KEY="aside-$(date +%m%d-%H%M%S)-$$"
+  "$ATEST" start --kind aside --label "녹화 실측 · ${NAME:-$URL}" --key "$AT_KEY" \
+    "고정 탭=$URL" "작업 수행=$(printf '%s' "$PROMPT" | tr '\n' ' ' | cut -c1-120)" "인코딩=mp4 묶기" "탭 고정 판정=세션 로그로 고정 탭 이탈 확인" \
+    >/dev/null 2>&1 || AT_KEY=""
+fi
 
 # --- 관찰자 -----------------------------------------------------------------
 # 대화형 `aside repl` 하나를 끝까지 붙들고 있는다. 지켜야 하는 성질(전부 실측):
@@ -175,6 +190,7 @@ PY
 
 # --- 0) 고정 탭 ---------------------------------------------------------------
 echo "0) 고정 탭: $URL"
+at case "고정 탭" running
 observer &
 OBS=$!
 SESS=""; PIN=""
@@ -190,6 +206,7 @@ done
 [ -z "$PIN" ] && { echo "고정 탭을 열지 못했습니다"; cat "$TMP/observer.json" 2>/dev/null; tail -5 "$TMP/observer.log" 2>/dev/null; kill "$OBS" 2>/dev/null; exit 1; }
 FRAMES="$SESS/artifacts/frames"
 echo "   탭 $PIN"
+at case "고정 탭" passed "탭 $PIN"
 
 stop_observer() {
   touch "$SESS/artifacts/STOP"
@@ -197,6 +214,7 @@ stop_observer() {
   kill "$OBS" 2>/dev/null
 }
 cleanup() {
+  at_exit
   kill -0 "$OBS" 2>/dev/null && stop_observer
   [ -n "$SESS" ] && rm -rf "$SESS/artifacts/frames" "$SESS/artifacts/STOP"
   rm -rf "$TMP"
@@ -211,8 +229,10 @@ TASK="이 작업은 targetId $PIN 탭 하나에서만 한다. 시작하자마자
 
 $PROMPT"
 echo "1) 작업 수행 (녹화 중)"
+at case "작업 수행" running
 aside "$TASK" > "$TMP/task.log" 2>&1
 TASK_EXIT=$?
+if [ "$TASK_EXIT" -eq 0 ]; then at case "작업 수행" passed; else at case "작업 수행" failed "aside 종료 코드 $TASK_EXIT"; fi
 
 # --- 2) 녹화 종료 -------------------------------------------------------------
 echo "2) 녹화 종료"
@@ -234,9 +254,11 @@ MP4="$OUTDIR/$NAME $STAMP.mp4"
 # 여러 케이스를 동시에 돌리면 같은 초에 시작할 수 있다. 시각 부분은 그대로 두고 뒤에만 붙인다.
 i=2; while [ -e "$MP4" ]; do MP4="$OUTDIR/$NAME $STAMP-$i.mp4"; i=$((i+1)); done
 echo "3) 인코딩 (프레임 $COUNT 장)"
-encode "$FRAMES" "$MP4" || { echo "인코딩 실패 — 프레임은 $FRAMES 에 남겨 둔다"; SESS=""; exit 1; }
+at case "인코딩" running "프레임 $COUNT 장"
+encode "$FRAMES" "$MP4" || { at case "인코딩" failed "인코딩 실패"; echo "인코딩 실패 — 프레임은 $FRAMES 에 남겨 둔다"; SESS=""; exit 1; }
 
 echo "영상: $MP4"
+at case "인코딩" passed "프레임 $COUNT 장"
 # 파일명에 공백·한글이 들어가므로 노트의 file:/// 링크는 이 인코딩된 값을 쓴다.
 echo "영상 URL: $(python3 -c 'import sys,urllib.parse; print("file://" + urllib.parse.quote(sys.argv[1]))' "$MP4")"
 echo "녹화 시작: $(date -r "$REC_EPOCH" '+%Y-%m-%d %H:%M:%S') (epoch $REC_EPOCH)"
@@ -273,12 +295,17 @@ PY
 )
   if [ -n "$VIOL" ]; then
     echo "[폐기] 에이전트가 고정 탭을 벗어났다: $VIOL — 이 녹화는 작업 전체를 담지 못한다"
+    at case "탭 고정 판정" failed "[폐기] $VIOL"
   else
     echo "탭 고정: 지켜짐"
+    at case "탭 고정 판정" passed
   fi
   echo "타임라인 초안: $SDIR/aside-timeline.py --video \"$MP4\" --session \"$SESSION\""
 else
   echo "세션 로그를 찾지 못했습니다 — 탭 고정 판정과 타임라인은 $SDIR/aside-timeline.py --find 로 직접 찾으세요"
+  at case "탭 고정 판정" skipped "세션 로그 없음"
 fi
+at end "$(basename "$MP4")"
+AT_DONE=1
 [ "$TASK_EXIT" -ne 0 ] && echo "[경고] aside 가 종료 코드 $TASK_EXIT 로 끝났다"
 tail -c 400 "$TMP/task.log"
