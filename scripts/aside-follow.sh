@@ -167,8 +167,21 @@ while True:
     r = call(f"console.log('CAP:' + await recCap({CHUNK_MS}));")
     if "CAP:STOP" in r or "CAP:" not in r:
         break
-call("await closeTab(pin); console.log('CLOSED');")
-p.stdin.close(); p.wait(timeout=10)
+# closeTab 은 연결만 끊고 탭을 남기는 일이 있다. 닫기 전에 제목에 표식을 박고,
+# 남았으면 JXA 로 그 표식의 탭을 닫는다(앱 활성화 없음 — 사용자 포커스를 건드리지 않는다).
+mark = f"ASIDE-REC-{pin_id}"
+call(f"await pin.evaluate(t => {{ document.title = t; }}, {json.dumps(mark)}).catch(() => {{}}); "
+     "await closeTab(pin).catch(e => console.log('CLOSE_ERR ' + e)); console.log('CLOSED');")
+p.stdin.close()
+try:
+    p.wait(timeout=10)
+except subprocess.TimeoutExpired:
+    p.kill()
+time.sleep(1)
+jxa = ("const m=%s;let n=0;Application('Aside').windows().forEach(w=>w.tabs().slice().reverse()"
+       ".forEach(t=>{if(t.name()===m){t.close();n++}}));n" % json.dumps(mark))
+r = subprocess.run(["osascript", "-l", "JavaScript", "-e", jxa], capture_output=True, text=True)
+log.write(f"JXA_CLOSED:{r.stdout.strip() or r.stderr.strip()}\n"); log.flush()
 PY
 }
 
