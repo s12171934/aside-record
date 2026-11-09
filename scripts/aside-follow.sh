@@ -37,6 +37,16 @@ ATEST="${ATEST:-$(command -v atest 2>/dev/null)}"
 AT_KEY=""; AT_DONE=""
 at() { [ -n "$AT_KEY" ] && [ -x "$ATEST" ] && "$ATEST" "$@" --key "$AT_KEY" >/dev/null 2>&1; return 0; }
 at_exit() { [ -n "$AT_KEY" ] && [ -z "$AT_DONE" ] && at end failed "녹화가 중간에 멈췄다"; return 0; }
+# 남긴 녹화는 agent dashboard 의 「녹화 영상」 공개 목록(media.json)에 올린다 — tailnet 기기·iPhone 에서 보도록.
+# amedia 는 $AMEDIA·PATH, 없으면 이 스킬이 든 볼트의 agent-dashboard 에서 찾는다. ADASH_MEDIA_AUTO=0 이면 올리지 않는다.
+AMEDIA="${AMEDIA:-$(command -v amedia 2>/dev/null)}"
+[ -x "$AMEDIA" ] || AMEDIA="$SDIR/../../../../40_Tools/agent-dashboard/bin/amedia"
+publish() {  # <mp4>
+  [ "${ADASH_MEDIA_AUTO:-1}" = 0 ] && { echo "대시보드 공개: 끔 (ADASH_MEDIA_AUTO=0)"; return 0; }
+  [ -x "$AMEDIA" ] || { echo "대시보드 공개: amedia 를 찾지 못해 건너뜀"; return 0; }
+  "$AMEDIA" add "$1" >/dev/null 2>&1 && echo "대시보드 공개: 「녹화 영상」 목록에 올림" || echo "대시보드 공개: 실패 — $AMEDIA add 로 다시 올린다"
+  return 0
+}
 
 # --- 사전 점검 --------------------------------------------------------------
 # 화면 기록·접근성 권한은 더 이상 필요 없다 — 화면을 찍지도, 메뉴를 누르지도 않는다.
@@ -318,6 +328,7 @@ else
   echo "세션 로그를 찾지 못했습니다 — 탭 고정 판정과 타임라인은 $SDIR/aside-timeline.py --find 로 직접 찾으세요"
   at case "탭 고정 판정" skipped "세션 로그 없음"
 fi
+[ -z "${VIOL:-}" ] && publish "$MP4"
 at end "$(basename "$MP4")"
 AT_DONE=1
 [ "$TASK_EXIT" -ne 0 ] && echo "[경고] aside 가 종료 코드 $TASK_EXIT 로 끝났다"

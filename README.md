@@ -40,7 +40,7 @@ git clone https://github.com/s12171934/aside-record.git ~/.claude/skills/aside-r
 | `scripts/aside-timeline.py` | 세션 로그를 녹화 시작 기준 오프셋으로 펴는 타임라인 초안 도구 |
 | `scripts/fake-mic.js` | 녹음 작업용 가짜 마이크 주입 함수 — 에이전트 프롬프트에 넣어 `page.evaluate` 로 실행 (`SKILL.md` §1 「마이크를 쓰는 작업」) |
 
-환경 변수: `ASIDE_RECORD_FPS`(캡처 fps, 기본 5), `ASIDE_RECORD_VAULT`(Obsidian 볼트 경로, 선택).
+환경 변수: `ASIDE_RECORD_FPS`(캡처 fps, 기본 5), `ASIDE_RECORD_VAULT`(Obsidian 볼트 경로, 선택), `ADASH_MEDIA_AUTO`(0 이면 대시보드 「녹화 영상」에 자동 공개하지 않음).
 
 ## 공개 면
 
